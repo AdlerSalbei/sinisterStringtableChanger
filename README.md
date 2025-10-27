@@ -10,7 +10,7 @@ Example: `TS-2` → `TS-2 S3 Military A EHD`
 - **HD** = High demand
 - **ND** = Normal demand
 - **ZD** = Zero demand
-## Alternate
+### Alternate
 
 The format is: **[Type][Size][Quality] [Component Name] [Optional: Sinister Needs]**
 Example: `TS-2` → `M3A TS-2 EHD`
