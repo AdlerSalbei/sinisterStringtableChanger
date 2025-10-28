@@ -1,0 +1,54 @@
+name: Build Star Citizen StringTool EXE
+
+on:
+  push:
+    branches: [ "main" ]
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Build EXE with PyInstaller
+      run: |
+        pyinstaller --onefile main.py --name StarCitizenStringTool
+
+    - name: Upload artifact (EXE)
+      uses: actions/upload-artifact@v4
+      with:
+        name: StarCitizenStringTool
+        path: dist/StarCitizenStringTool.exe
+
+  release:
+    runs-on: windows-latest
+    needs: build
+    if: github.event_name == 'release'
+
+    steps:
+    - name: Download build artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: StarCitizenStringTool
+        path: dist
+
+    - name: Upload to GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/StarCitizenStringTool.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
