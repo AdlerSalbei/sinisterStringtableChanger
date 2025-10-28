@@ -1,4 +1,4 @@
-name: Build Star Citizen StringTool EXE
+name: Build and Package Sinister Inc. Stringtable Changer
 
 on:
   push:
@@ -11,13 +11,17 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout Repository
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.14'
+
+    - name: Restore Google Service Account File
+      run: |
+        echo "${{ secrets.GOOGLE_SERVICE_JSON }}" > service_account.json
 
     - name: Install dependencies
       run: |
@@ -26,13 +30,22 @@ jobs:
 
     - name: Build EXE with PyInstaller
       run: |
-        pyinstaller --onefile main.py --name StarCitizenStringTool
+        pyinstaller --onefile main.py --name "SinisterInc_StringtableChanger"
 
-    - name: Upload artifact (EXE)
+    - name: Prepare ZIP package
+      run: |
+        mkdir package
+        copy dist\SinisterInc_StringtableChanger.exe package\
+        xcopy stringtables package\stringtables\ /E /I /Y
+        powershell Compress-Archive -Path package\* -DestinationPath SinisterInc_StringtableChanger.zip
+
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: StarCitizenStringTool
-        path: dist/StarCitizenStringTool.exe
+        name: SinisterInc_StringtableChanger
+        path: |
+          dist/SinisterInc_StringtableChanger.exe
+          SinisterInc_StringtableChanger.zip
 
   release:
     runs-on: windows-latest
@@ -40,15 +53,17 @@ jobs:
     if: github.event_name == 'release'
 
     steps:
-    - name: Download build artifact
+    - name: Download build artifacts
       uses: actions/download-artifact@v4
       with:
-        name: StarCitizenStringTool
+        name: SinisterInc_StringtableChanger
         path: dist
 
     - name: Upload to GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/StarCitizenStringTool.exe
+        files: |
+          dist/SinisterInc_StringtableChanger.exe
+          dist/SinisterInc_StringtableChanger.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
