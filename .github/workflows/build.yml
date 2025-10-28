@@ -32,6 +32,32 @@ jobs:
       run: |
         pyinstaller --onefile main.py --name "SinisterInc_StringtableChanger"
 
+    - name: Install Inno Setup
+      shell: pwsh
+      run: |
+        Invoke-WebRequest -Uri "https://jrsoftware.org/download.php/is.exe" -OutFile inno_installer.exe
+        Start-Process .\inno_installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART -Wait
+        $env:PATH += ";C:\Program Files (x86)\Inno Setup 6"
+
+    - name: Create Inno Setup script
+      run: |
+        echo [Setup] > installer.iss
+        echo AppName=Sinister Inc. Stringtable Changer >> installer.iss
+        echo AppVersion=1.0.0 >> installer.iss
+        echo DefaultDirName={pf}\SinisterInc_StringtableChanger >> installer.iss
+        echo DisableDirPage=no >> installer.iss
+        echo OutputDir=dist >> installer.iss
+        echo OutputBaseFilename=SinisterInc_StringtableChanger_Installer >> installer.iss
+        echo [Files] >> installer.iss
+        echo Source: "dist\SinisterInc_StringtableChanger.exe"; DestDir: "{app}"; Flags: ignoreversion >> installer.iss
+        echo Source: "stringtables\*"; DestDir: "{app}\stringtables"; Flags: ignoreversion recursesubdirs >> installer.iss
+        echo [Icons] >> installer.iss
+        echo Name: "{group}\SinisterInc_StringtableChanger"; Filename: "{app}\SinisterInc_StringtableChanger.exe" >> installer.iss
+        echo Name: "{commondesktop}\SinisterInc_StringtableChanger"; Filename: "{app}\SinisterInc_StringtableChanger.exe" >> installer.iss
+
+    - name: Build Installer with Inno Setup
+      run: iscc installer.iss
+
     - name: Prepare ZIP package
       run: |
         mkdir package
@@ -45,6 +71,7 @@ jobs:
         name: SinisterInc_StringtableChanger
         path: |
           dist/SinisterInc_StringtableChanger.exe
+          dist/SinisterInc_StringtableChanger_Installer.exe
           SinisterInc_StringtableChanger.zip
 
   release:
@@ -64,6 +91,7 @@ jobs:
       with:
         files: |
           dist/SinisterInc_StringtableChanger.exe
+          dist/SinisterInc_StringtableChanger_Installer.exe
           dist/SinisterInc_StringtableChanger.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
