@@ -2,8 +2,6 @@ import gspread
 from google.oauth2.service_account import Credentials
 import os
 import shutil
-import re
-import winreg
 
 # ---- KONFIGURATION ----
 SERVICE_ACCOUNT_FILE = "service_account.json"  # Google Service Account JSON
@@ -15,30 +13,27 @@ BACKUP_FOLDER = "backups"                      # Ort, wo Backups abgelegt werden
 def find_star_citizen_install_path():
     """
     Versucht automatisch den Star Citizen Installationspfad zu finden.
-    Prüft Standardorte und Registry-Einträge.
+    Prüft zuerst die PATH-Umgebungsvariable, dann Standardpfade, danach Benutzerabfrage.
     """
+    # 1. Suche in PATH-Variable
+    paths = os.environ.get("PATH", "").split(os.pathsep)
+    for path in paths:
+        normalized_path = os.path.normpath(path).lower()
+        if "starcitizen\\live" in normalized_path:
+            return os.path.normpath(path)
+
+    # 2. Fallback auf Standardpfade
     possible_paths = [
         r"C:\Program Files\Roberts Space Industries\StarCitizen\LIVE",
         r"C:\Program Files (x86)\Roberts Space Industries\StarCitizen\LIVE",
         os.path.expandvars(r"%ProgramFiles%\Roberts Space Industries\StarCitizen\LIVE"),
         os.path.expandvars(r"%ProgramFiles(x86)%\Roberts Space Industries\StarCitizen\LIVE"),
     ]
-
-    # Versuche über Registry
-    try:
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Roberts Space Industries") as key:
-            install_path, _ = winreg.QueryValueEx(key, "InstallLocation")
-            live_path = os.path.join(install_path, "StarCitizen", "LIVE")
-            if os.path.exists(live_path):
-                return live_path
-    except FileNotFoundError:
-        pass
-
-    # Fallback auf Standardpfade
     for path in possible_paths:
         if os.path.exists(path):
             return path
 
+    # 3. Benutzerabfrage
     print("Star Citizen LIVE-Verzeichnis konnte nicht automatisch gefunden werden.")
     print("Bitte Pfad manuell eingeben (z. B. C:\\Program Files\\Roberts Space Industries\\StarCitizen\\LIVE):")
     manual_path = input("Pfad: ").strip('" ')
@@ -87,7 +82,6 @@ def backup_existing_file(file_path):
     shutil.copy2(file_path, backup_path)
     return backup_path
 
-
 def process_ini_file(mapping, input_path, output_path):
     """Bearbeitet eine INI-Datei und speichert sie als global.ini."""
     with open(input_path, "r", encoding="utf-8") as f:
@@ -105,47 +99,3 @@ def process_ini_file(mapping, input_path, output_path):
                     value = value + suffix
                 line = f"{key}={value}\n"
         modified_lines.append(line)
-
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.writelines(modified_lines)
-
-def main():
-    print("Lade Google Sheet ...")
-    data = read_google_sheet(SPREADSHEET_NAME)
-    print(f"→ {len(data)} Einträge geladen.")
-
-    # Sprache wählen
-    language = input("Sprache wählen (de/en/fr): ").strip().lower()
-    available_langs = ["de", "en", "fr"]
-    if language not in available_langs:
-        print("Ungültige Sprache, Standard 'de' wird verwendet.")
-        language = "de"
-
-    input_file = os.path.join(STRINGTABLE_FOLDER, f"{language}.ini")
-
-    if not os.path.exists(input_file):
-        print(f"Datei nicht gefunden: {input_file}")
-        return
-
-    # Star Citizen Pfad ermitteln
-    star_citizen_path = find_star_citizen_install_path()
-    if not os.path.exists(star_citizen_path):
-        print(f" Ungültiger Pfad: {star_citizen_path}")
-        return
-
-    output_file = os.path.join(star_citizen_path, "global.ini")
-
-    # Backup erstellen, falls vorhanden
-    backup = backup_existing_file(output_file)
-    if backup:
-        print(f"Backup erstellt unter: {backup}")
-
-    print(f"Bearbeite Sprachdatei ({language}.ini) ...")
-    process_ini_file(data, input_file, output_file)
-
-    print(f"global.ini erfolgreich erstellt im LIVE-Verzeichnis:")
-    print(f"   {output_file}")
-
-if __name__ == "__main__":
-    main()
