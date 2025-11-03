@@ -19,5 +19,5 @@ def read_google_sheet(sheet_url):
     mapping = {}
     for row in data[1:]:
         if len(row) >= 5 and row[0].strip():
-            mapping[row[0].strip()] = row[4].strip()
+            mapping[row[0].strip().lower()] = int(float(row[4].strip() or 0))
     return mapping

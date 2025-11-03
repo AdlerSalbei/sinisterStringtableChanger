@@ -1,12 +1,28 @@
 import os
 import shutil
 
-from config import BACKUP_FOLDER, STRINGTABLE_FOLDER
+from config import BACKUP_FOLDER, STRINGTABLE_FOLDER  # where your generated global.ini lives
+
+# Mapping of language code to folder name and CVAR line
+LANGUAGE_MAP = {
+    "zh_cn": "chinese_(simplified)",
+    "zh_tw": "chinese_(traditional)",
+    "en": "english",
+    "fr": "french_(france)",
+    "de": "german_(germany)",
+    "it": "italian_(italy)",
+    "ja": "japanese_(japan)",
+    "ko": "korean_(south_korea)",
+    "pl": "polish_(poland)",
+    "pt_br": "portuguese_(brazil)",
+    "es_latam": "spanish_(latin_america)",
+    "es_es": "spanish_(spain)",
+}
 
 def get_suffix(value):
     try:
-        num = int(value)
-    except ValueError:
+        num = int(float(value.strip()))
+    except (ValueError, AttributeError):
         return ""
     return {50: " EHD", 25: " HD", 1: " ND", 0: " ZD"}.get(num, "")
 
@@ -37,3 +53,60 @@ def process_ini_file(mapping, input_path, output_path):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         f.writelines(modified_lines)
+
+def move_global_ini_and_set_language(global_ini_path, star_citizen_path, lang_code):
+    """
+    Moves global.ini to the correct folder and updates user.cfg,
+    replacing the g_language line if it exists.
+    """
+
+    if lang_code not in LANGUAGE_MAP:
+        raise ValueError(f"Unknown language code: {lang_code}")
+
+    folder_name = LANGUAGE_MAP[lang_code]
+
+    # Ensure star_citizen_path points to LIVE (avoid duplicate LIVE folder)
+    live_path = star_citizen_path.rstrip("\\/")
+    if os.path.basename(live_path).lower() != "live":
+        live_path = os.path.join(live_path, "LIVE")
+
+    # Target folder for localization
+    target_folder = os.path.join(live_path, "data", "Localization", folder_name)
+    os.makedirs(target_folder, exist_ok=True)
+
+    # Copy global.ini into the localization folder
+    dest_ini_path = os.path.join(target_folder, "global.ini")
+    shutil.copy2(global_ini_path, dest_ini_path)
+    print(f"global.ini copied to: {dest_ini_path}")
+
+    # Path to user.cfg
+    user_cfg_path = os.path.join(live_path, "user.cfg")
+
+    # If user.cfg doesn't exist, create it with the g_language line
+    if not os.path.exists(user_cfg_path):
+        with open(user_cfg_path, "w", encoding="utf-8") as f:
+            f.write(f"g_language = {folder_name}\n")
+        print(f"user.cfg created with language: {folder_name}")
+        return
+
+    # Read existing lines
+    with open(user_cfg_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    # Check if g_language line exists; replace it
+    found = False
+    for i, line in enumerate(lines):
+        if line.strip().lower().startswith("g_language"):
+            lines[i] = f"g_language = {folder_name}\n"
+            found = True
+            break
+
+    # If not found, append it
+    if not found:
+        lines.append(f"g_language = {folder_name}\n")
+
+    # Write updated lines back to user.cfg
+    with open(user_cfg_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+
+    print(f"user.cfg updated with language: {folder_name}")
