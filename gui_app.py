@@ -102,30 +102,41 @@ class App(tk.Tk):
         self.log("Lade Google Sheet ...")
         data = read_google_sheet(GOOGLE_SHEET_LINK)
         if not data:
+            self.log("❌ Fehler beim Laden der Google Sheet Daten")
             return
-        self.log(f"→ {len(data)} Einträge geladen.")
-
+        self.log(f"✓ {len(data)} Einträge geladen.")
+    
         language = self.lang_var.get()  # e.g., "de"
         input_file = os.path.join(STRINGTABLE_FOLDER, f"{language}.ini")
         if not os.path.exists(input_file):
-            messagebox.showerror("Fehler", f"Datei nicht gefunden: {input_file}")
+            self.log(f"❌ Basis-Stringtable nicht gefunden: {input_file}")
+            messagebox.showerror("Fehler", f"Datei nicht gefunden: {input_file}\n\nBitte stelle sicher, dass die Basis-Stringtable im Ordner 'stringTables' liegt.")
             return
-
+    
         path = self.path_entry.get() or find_star_citizen_install_path()
         if not path or not os.path.exists(path):
+            self.log(f"❌ Ungültiger Star Citizen Pfad: {path}")
             messagebox.showerror("Fehler", f"Ungültiger Pfad: {path}")
             return
-
-        # 1️⃣ Backup existing global.ini
-        output_file = os.path.join(path, "global.ini")
-        backup = backup_existing_file(output_file)
-        if backup:
-            self.log(f"Backup erstellt unter: {backup}")
-
-        # 2️⃣ Process INI file (add suffixes)
-        process_ini_file(data, input_file, output_file)
-        self.log(f"global.ini erfolgreich erstellt:\n{output_file}")
-
+    
+        # 1️⃣ Create temporary output path
+        temp_output = os.path.join(STRINGTABLE_FOLDER, "global_modified.ini")
+        
+        # 2️⃣ Process INI file (add suffixes from Google Sheet)
+        try:
+            process_ini_file(data, input_file, temp_output)
+            self.log(f"✓ Stringtable verarbeitet")
+        except Exception as e:
+            self.log(f"❌ Fehler beim Verarbeiten: {str(e)}")
+            messagebox.showerror("Fehler", f"Fehler beim Verarbeiten der Stringtable:\n{str(e)}")
+            return
+    
         # 3️⃣ Move to localization folder & update user.cfg
-        move_global_ini_and_set_language(output_file, path, language)
-
+        try:
+            move_global_ini_and_set_language(temp_output, path, language)
+            self.log(f"✓ global.ini erfolgreich installiert!")
+            self.log(f"✓ user.cfg aktualisiert (Sprache: {language})")
+            messagebox.showinfo("Erfolg", "Stringtable wurde erfolgreich installiert!\n\nBitte starte Star Citizen neu.")
+        except Exception as e:
+            self.log(f"❌ Fehler beim Installieren: {str(e)}")
+            messagebox.showerror("Fehler", f"Fehler beim Installieren:\n{str(e)}")
