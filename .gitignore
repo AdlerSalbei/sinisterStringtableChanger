@@ -1,3 +1,7 @@
+service_account.json
+backups/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -17,6 +21,7 @@ eggs/
 lib/
 lib64/
 parts/
+package/
 sdist/
 var/
 wheels/
